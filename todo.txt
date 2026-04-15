@@ -1,0 +1,2 @@
+ - create /lib /assets /include
+ - add raylib header to /include and static lib to /lib
