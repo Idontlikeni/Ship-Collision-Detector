@@ -6,11 +6,17 @@
 #define WINDOW_WIDTH 1920
 #define WINDOW_HEIGHT 1080
 
-
 Vector2 T1;
 Vector2 T2;
 
-Vector2 CalculateCollisionArea(Vector2 targetPos, Vector2 targetVec, float targetRadius, float shipSpeed){
+typedef struct PointsArray
+{
+    int n;
+    Vector2 items[100];
+} PointsArray;
+
+Vector2 CalculateCollisionArea(Vector2 targetPos, Vector2 targetVec, float targetRadius, float shipSpeed)
+{
     // float distance = sqrtf(targetX * targetX + targetY * targetY);
     float d = Vector2Length(targetPos); // d - distance to the target
     printf("Distance: %02f \n", d);
@@ -20,7 +26,8 @@ Vector2 CalculateCollisionArea(Vector2 targetPos, Vector2 targetVec, float targe
     float r = targetRadius; // - radius of target
     Vector2 F = {m*m*h/(d*d), m*m*k/(d*d)}; // F - Точка пересечения поляры и вектора от нашего корабля к центру окружнсти
     Vector2 s = {-(k*m*r/(d*d)), (h*m*r/(d*d))}; // s - Вектор поляры
-                                                 //
+    
+    PointsArray points;
     T1 = Vector2Add(F, s);
     T2 = Vector2Add(F, Vector2Negate(s));
 }
