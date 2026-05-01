@@ -3,6 +3,8 @@
 #include <stdio.h>
 #include <math.h>
 #include <stdlib.h>
+#include <time.h>
+
 #define WINDOW_WIDTH 1920
 #define WINDOW_HEIGHT 1080
 
@@ -59,11 +61,17 @@ Vec3Pair* CalculateCollisionArea(Vector2 targetPos, Vector2 targetVec, float tar
     {
         float p1 = atan2(T1.y, T1.x);
         float p2 = atan2(T2.y, T2.x);
-        float startAngle = fmin(p1, p2);
-        float endAngle = fmax(p1, p2);
-        float angleStep = (endAngle - startAngle)/(pointsCount - 2);
 
-        Vec3Pair* collisionPoints = (Vec3Pair*)calloc(pointsCount - 2, sizeof(Vec3Pair));
+        float diff = p1 - p2;
+        float shortestDiff = remainder(diff, 2.0f*PI);
+        float angleStep = (shortestDiff)/(pointsCount - 1);
+
+        if(IsKeyPressed(KEY_SPACE))
+        {
+            TraceLog(LOG_INFO, "Start, end, step angle: %.2f, %.2f, %.2f", p1, p2, angleStep);
+        }
+
+        Vec3Pair* collisionPoints = (Vec3Pair*)calloc(pointsCount - 1, sizeof(Vec3Pair));
         if(collisionPoints == NULL)
         {
             printf("Unable to create collision points array");
@@ -71,12 +79,9 @@ Vec3Pair* CalculateCollisionArea(Vector2 targetPos, Vector2 targetVec, float tar
         }
 
         for(int i = 1; i < pointsCount - 1; ++i)
-        {
-            collisionPoints[i] = CalculateIntersection(targetPos, targetRadius, startAngle + angleStep * i);
-            printf("first point x, y, distance: %.2f\t%.2f\t%.2f \n", collisionPoints[i].first.x, collisionPoints[i].first.y, collisionPoints[i].first.z);
-            // printf("second\tpoint x, y, distance: %.2f, %.2f, %.2f \n", collisionPoints[i].second.x, collisionPoints[i].second.y, collisionPoints[i].second.z);
-        }
-        // free(collisionPoints);
+            collisionPoints[i] = CalculateIntersection(targetPos, targetRadius, p2 + angleStep * i);
+        collisionPoints[0] = (Vec3Pair){{T1.x, T1.y, m}, {T2.x, T2.y, m}};
+        
         return collisionPoints;
     }
 }
@@ -86,37 +91,46 @@ int main(void)
     InitWindow(WINDOW_WIDTH, WINDOW_HEIGHT, "raylib example - basic window");
 
     int x = 100, y = 100;
-    float r = 50.0f;
     Vector2 shipScreenPos = { WINDOW_WIDTH/2.0f, WINDOW_HEIGHT/2.0f };
-    Vector2 mousePos;
     Vec3Pair* points;
 
     int numberOfPoints = 10;
+    //Target Parameters
+    float r = 50.0f;
+    Vector2 mousePos;
+    Vector2 targetVec = (Vector2){100.0f, -62.0f};
+    Vector2 targetVecScreen = (Vector2){targetVec.x, -targetVec.y};
 
     while (!WindowShouldClose())
     {
+        
         mousePos = GetMousePosition();
         r += GetMouseWheelMove();
-
+        // ---------------------------------------------------------
         // Calculating a Decart positiong of target
+        // ---------------------------------------------------------
         Vector2 relativeTargetPosition = {mousePos.x - shipScreenPos.x, -(mousePos.y - shipScreenPos.y)};
         float targetAngle = atan2(relativeTargetPosition.y, relativeTargetPosition.x);
-
+        // Vector2 relativeTargetVec = {targetVec.x, -(targetVec.y)};
+        // if(IsKeyPressed(KEY_SPACE))
+        //             TraceLog(LOG_INFO, "target vec: %.2f, %.2f", relativeTargetVec.x, relativeTargetVec.y);
+        // ---------------------------------------------------------
         // Calculating collision points
-        points = CalculateCollisionArea(relativeTargetPosition, (Vector2){0, 0}, r, 0.0f, numberOfPoints);
-        for(int i = 1; i < numberOfPoints - 1; ++i)
+        // ---------------------------------------------------------
+        points = CalculateCollisionArea(relativeTargetPosition, targetVec, r, 0.0f, numberOfPoints);
+        
+        //  ---------------------------------------------------------
+        //  Calculating the positiong of resulting area on the screen
+        //  ---------------------------------------------------------
+        Vector2 T1Screen = (Vector2){shipScreenPos.x + T1.x, shipScreenPos.y - T1.y};
+        Vector2 T2Screen = (Vector2){shipScreenPos.x + T2.x, shipScreenPos.y - T2.y};
+        for(int i = 0; i < numberOfPoints - 1; ++i)
         {
             points[i].first.x = shipScreenPos.x + points[i].first.x;
             points[i].first.y = shipScreenPos.y - points[i].first.y;
             points[i].second.x = shipScreenPos.x + points[i].second.x;
             points[i].second.y = shipScreenPos.y - points[i].second.y;
         }
-        // Vec3Pair intersectionPoints = CalculateIntersection(relativeTargetPosition, r, targetAngle);
-
-        // Calculating the positiong of resulting area on the screen
-        // areaToScreen();
-        Vector2 T1Screen = (Vector2){shipScreenPos.x + T1.x, shipScreenPos.y - T1.y};
-        Vector2 T2Screen = (Vector2){shipScreenPos.x + T2.x, shipScreenPos.y - T2.y};
         // Vector2 col1 = Vec3To2(intersectionPoints.first);
         // Vector2 col2 = Vec3To2(intersectionPoints.second);
         // col1.x = shipScreenPos.x + col1.x;
@@ -131,8 +145,9 @@ int main(void)
             DrawText(TextFormat("targetPos: %.2f %.2f", relativeTargetPosition.x, relativeTargetPosition.y), 10, 40, 20, LIGHTGRAY);
             ClearBackground(RAYWHITE);
             DrawCircleV(mousePos, r, RED); 
-            DrawLineV(shipScreenPos, T1Screen, BLACK);
-            DrawLineV(shipScreenPos, T2Screen, BLACK);
+            DrawLineV(shipScreenPos, T1Screen, GREEN);
+            DrawLineV(shipScreenPos, T2Screen, BLUE);
+            DrawLineV(mousePos, Vector2Add(mousePos, targetVecScreen), BLACK);
 
             for(int i = 1; i < numberOfPoints - 1; ++i)
             {
