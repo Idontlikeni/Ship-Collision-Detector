@@ -9,6 +9,7 @@
 #define WINDOW_HEIGHT 1080
 
 #define Vec3To2(v) ((Vector2) { v.x, v.y })
+#define Vec2To3(v) ((Vector3) { v.x, v.y, 0.0f })
 
 Vector2 T1;
 Vector2 T2;
@@ -18,6 +19,12 @@ typedef struct PointsArray
     int n;
     Vector2 items[100];
 } PointsArray;
+
+typedef struct Vec2Pair
+{
+    Vector2 first;
+    Vector2 second;
+} Vec2Pair;
 
 typedef struct Vec3Pair
 {
@@ -33,17 +40,27 @@ Vec3Pair CalculateIntersection(Vector2 targetPos, float radius, float angle)
     float c = targetPos.x * targetPos.x + targetPos.y * targetPos.y - radius * radius;
 
     float D = b*b - 4*a*c;
-    float t1 = (-b + sqrt(D))/(2.0f);
-    float t2 = (-b - sqrt(D))/(2.0f);
+    float t1;
+    float t2;
+
+    if(D < 0)
+    {
+        t1 = -1;
+        t2 = -1;
+    }
+    else
+    {
+        t1 = (-b + sqrt(D))/(2.0f);
+        t2 = (-b - sqrt(D))/(2.0f);
+    }
     
     // printf("t1: %.2f, t2: %.2f \n", t1, t2);
 
     return (Vec3Pair){ {t1*cos_a, t1*sin_a, t1}, {t2*cos_a, t2*sin_a, t2} };
 }
 
-Vec3Pair* CalculateCollisionArea(Vector2 targetPos, Vector2 targetVec, float targetRadius, float shipSpeed, int pointsCount)
+Vec2Pair CalculateTangentLine(Vector2 targetPos, float targetRadius)
 {
-    // float distance = sqrtf(targetX * targetX + targetY * targetY);
     float d = Vector2Length(targetPos); // d - distance to the target
     // printf("Distance: %02f \n", d);
     float m = sqrtf(d * d - targetRadius * targetRadius); // Length of the tangent line (касательной)
@@ -52,26 +69,43 @@ Vec3Pair* CalculateCollisionArea(Vector2 targetPos, Vector2 targetVec, float tar
     float r = targetRadius; // - radius of target
     Vector2 F = {m*m*h/(d*d), m*m*k/(d*d)}; // F - Точка пересечения поляры и вектора от нашего корабля к центру окружнсти
     Vector2 s = {-(k*m*r/(d*d)), (h*m*r/(d*d))}; // s - Вектор поляры
- 
+    
     // Tangent Lines: 
-    T1 = Vector2Add(F, s);
-    T2 = Vector2Add(F, Vector2Negate(s));
+    // T1 = Vector2Add(F, s);
+    // T2 = Vector2Add(F, Vector2Negate(s));
+    return (Vec2Pair){Vector2Add(F, s), Vector2Add(F, Vector2Negate(s))};
+}
+
+Vec2Pair* CalculateCollisionArea(Vector2 targetPos, Vector2 targetVec, float targetRadius, float shipSpeed, int pointsCount)
+{
+    // float distance = sqrtf(targetX * targetX + targetY * targetY);
+    Vec2Pair tangentLines = CalculateTangentLine(targetPos, targetRadius);
+    T1 = tangentLines.first;
+    T2 = tangentLines.second;
+
+    float m = Vector2Length(T1); // Length of the tangent line (касательной)
 
     if(pointsCount >= 2 && pointsCount % 2 == 0)
     {
         float p1 = atan2(T1.y, T1.x);
         float p2 = atan2(T2.y, T2.x);
 
+        // float p1 = 0;
+        // float p2 = -PI;
+
         float diff = p1 - p2;
         float shortestDiff = remainder(diff, 2.0f*PI);
         float angleStep = (shortestDiff)/(pointsCount - 1);
 
-        if(IsKeyPressed(KEY_SPACE))
+        /* if(IsKeyPressed(KEY_SPACE))
         {
             TraceLog(LOG_INFO, "Start, end, step angle: %.2f, %.2f, %.2f", p1, p2, angleStep);
         }
+        */
 
-        Vec3Pair* collisionPoints = (Vec3Pair*)calloc(pointsCount - 1, sizeof(Vec3Pair));
+        Vec3Pair* collisionPoints = (Vec3Pair*)calloc(pointsCount, sizeof(Vec3Pair));
+        Vec2Pair* resultPoints = (Vec2Pair*)calloc(pointsCount * 2, sizeof(Vec2Pair));
+
         if(collisionPoints == NULL)
         {
             printf("Unable to create collision points array");
@@ -80,9 +114,30 @@ Vec3Pair* CalculateCollisionArea(Vector2 targetPos, Vector2 targetVec, float tar
 
         for(int i = 1; i < pointsCount - 1; ++i)
             collisionPoints[i] = CalculateIntersection(targetPos, targetRadius, p2 + angleStep * i);
-        collisionPoints[0] = (Vec3Pair){{T1.x, T1.y, m}, {T2.x, T2.y, m}};
+        collisionPoints[0] = (Vec3Pair){{T1.x, T1.y, m}, {T1.x, T1.y, m}};
+        collisionPoints[pointsCount - 1] = (Vec3Pair){{T2.x, T2.y, m}, {T2.x, T2.y, m}};
         
-        return collisionPoints;
+        Vector2 shipNewPos = Vector2Negate(targetVec);
+
+        for(int i = 0; i < pointsCount; ++i)
+        {
+            Vector3 firstResultVec = CalculateIntersection(shipNewPos, shipSpeed, p2 + angleStep * i).first;
+            Vector3 secondResultVec = CalculateIntersection(shipNewPos, shipSpeed, p2 + angleStep * i).second;
+            resultPoints[i] =\
+            (Vec2Pair){ Vector2Scale(Vector2Add(Vec3To2(firstResultVec), targetVec), collisionPoints[i].first.z / firstResultVec.z),
+                        Vector2Scale(Vector2Add(Vec3To2(secondResultVec), targetVec), collisionPoints[i].second.z / secondResultVec.z)};
+        }
+        for(int i = 0; i < pointsCount; ++i)
+        {
+            Vector3 firstResultVec = CalculateIntersection(shipNewPos, shipSpeed, p2 + angleStep * i).first;
+            Vector3 secondResultVec = CalculateIntersection(shipNewPos, shipSpeed, p2 + angleStep * i).second;
+            resultPoints[i + pointsCount] =\
+            (Vec2Pair){ Vector2Scale(Vector2Add(Vec3To2(firstResultVec), targetVec), collisionPoints[i].first.z / secondResultVec.z),
+                        Vector2Scale(Vector2Add(Vec3To2(secondResultVec), targetVec), collisionPoints[i].second.z / firstResultVec.z)};
+        }
+        free(collisionPoints);
+        collisionPoints = NULL;
+        return resultPoints;
     }
 }
 
@@ -92,14 +147,15 @@ int main(void)
 
     int x = 100, y = 100;
     Vector2 shipScreenPos = { WINDOW_WIDTH/2.0f, WINDOW_HEIGHT/2.0f };
-    Vec3Pair* points;
+    Vec2Pair* points;
 
-    int numberOfPoints = 10;
+    int numberOfPoints = 20;
     //Target Parameters
     float r = 50.0f;
     Vector2 mousePos;
     Vector2 targetVec = (Vector2){100.0f, -62.0f};
     Vector2 targetVecScreen = (Vector2){targetVec.x, -targetVec.y};
+    float shipSpeed = 40.0f;
 
     while (!WindowShouldClose())
     {
@@ -117,14 +173,14 @@ int main(void)
         // ---------------------------------------------------------
         // Calculating collision points
         // ---------------------------------------------------------
-        points = CalculateCollisionArea(relativeTargetPosition, targetVec, r, 0.0f, numberOfPoints);
+        points = CalculateCollisionArea(relativeTargetPosition, targetVec, r, shipSpeed, numberOfPoints);
         
         //  ---------------------------------------------------------
         //  Calculating the positiong of resulting area on the screen
         //  ---------------------------------------------------------
         Vector2 T1Screen = (Vector2){shipScreenPos.x + T1.x, shipScreenPos.y - T1.y};
         Vector2 T2Screen = (Vector2){shipScreenPos.x + T2.x, shipScreenPos.y - T2.y};
-        for(int i = 0; i < numberOfPoints - 1; ++i)
+        for(int i = 0; i < numberOfPoints * 2; ++i)
         {
             points[i].first.x = shipScreenPos.x + points[i].first.x;
             points[i].first.y = shipScreenPos.y - points[i].first.y;
@@ -148,11 +204,19 @@ int main(void)
             DrawLineV(shipScreenPos, T1Screen, GREEN);
             DrawLineV(shipScreenPos, T2Screen, BLUE);
             DrawLineV(mousePos, Vector2Add(mousePos, targetVecScreen), BLACK);
+            DrawCircleLinesV(shipScreenPos, shipSpeed, LIGHTGRAY);
 
-            for(int i = 1; i < numberOfPoints - 1; ++i)
+            for(int i = 0; i < numberOfPoints; ++i)
             {
-                DrawCircleV(Vec3To2(points[i].first), 5.0f, GREEN);
-                DrawCircleV(Vec3To2(points[i].second), 5.0f, BLUE);
+                // DrawCircleV(Vec3To2(points[i].first), 5.0f, GREEN);
+                // DrawCircleV(Vec3To2(points[i].second), 5.0f, BLUE);
+
+                DrawCircleV(points[i].first, 5.0f, GREEN);
+                DrawCircleV(points[i].second, 5.0f, GREEN);
+                DrawCircleV(points[i + numberOfPoints].first, 5.0f, BLUE);
+                DrawCircleV(points[i + numberOfPoints].second, 5.0f, BLUE);
+                DrawLineV(points[i].first, points[i + numberOfPoints].first, ORANGE);
+                DrawLineV(points[i].second, points[i + numberOfPoints].second, ORANGE);
             }
             // DrawCircleV(col1, 10.f, GREEN);
             // DrawCircleV(col2, 10.f, BLUE);
