@@ -5,7 +5,6 @@
 #include <stdlib.h>
 #include <time.h>
 #include <string.h>
-
 #define WINDOW_WIDTH 1920
 #define WINDOW_HEIGHT 1080
 
@@ -131,10 +130,20 @@ Vec2Pair* CalculateCollisionArea(Vector2 targetPos, Vector2 targetVec, float tar
             DrawLine(shipScreenPos.x, shipScreenPos.y, shipScreenPos.x + secondResultVec.x, shipScreenPos.y - secondResultVec.y, LIME);
             // DrawCircle(shipScreenPos.x + shipNewPos.x, shipScreenPos.y, LIME);
             resultPoints[i] =\
-                (Vec2Pair){
-                Vector2Scale(Vector2Rotate(zeroAngleVec, p2 + angleStep * i), (Vector2Length(collisionPoints[i].first) / Vector2Length(firstResultVec)) * shipSpeed),
-                Vector2Scale(Vector2Rotate(zeroAngleVec, p2 + angleStep * i), (Vector2Length(collisionPoints[i].second) / Vector2Length(secondResultVec)) * shipSpeed)
+            (Vec2Pair){
+                Vector2Scale(Vector2Subtract(firstResultVec, shipNewPos), (Vector2Length(collisionPoints[i].first) / Vector2Length(firstResultVec))),
+                Vector2Subtract(secondResultVec, shipNewPos)
             };
+            resultPoints[i + pointsCount] =\
+            (Vec2Pair){
+                Vector2Scale(Vector2Subtract(secondResultVec, shipNewPos), (Vector2Length(collisionPoints[i].first) / Vector2Length(secondResultVec))),
+                Vector2Subtract(secondResultVec, shipNewPos)
+            };
+            // resultPoints[i] =\
+            //     (Vec2Pair){
+            //     Vector2Scale(Vector2Rotate(zeroAngleVec, p2 + angleStep * i), (Vector2Length(collisionPoints[i].first) / Vector2Length(firstResultVec)) * shipSpeed),
+            //     Vector2Scale(Vector2Rotate(zeroAngleVec, p2 + angleStep * i), (Vector2Length(collisionPoints[i].second) / Vector2Length(secondResultVec)) * shipSpeed)
+            // };
         }
         
         for(int i = 0; i < pointsCount; ++i)
@@ -143,11 +152,12 @@ Vec2Pair* CalculateCollisionArea(Vector2 targetPos, Vector2 targetVec, float tar
             Vector2 firstResultVec = resultVecs.first;
             Vector2 secondResultVec = resultVecs.second;
 
-            resultPoints[i + pointsCount] =\
-                (Vec2Pair){
-                Vector2Scale(Vector2Normalize(firstResultVec), (Vector2Length(collisionPoints[i].first) / Vector2Length(secondResultVec)) * shipSpeed),
-                Vector2Scale(Vector2Normalize(secondResultVec), (Vector2Length(collisionPoints[i].second) / Vector2Length(firstResultVec)) * shipSpeed)
-            };
+            // resultPoints[i] = resultVecs;
+            // resultPoints[i + pointsCount] =\
+            //     (Vec2Pair){
+            //     Vector2Scale(Vector2Normalize(firstResultVec), (Vector2Length(collisionPoints[i].first) / Vector2Length(secondResultVec)) * shipSpeed),
+            //     Vector2Scale(Vector2Normalize(secondResultVec), (Vector2Length(collisionPoints[i].second) / Vector2Length(firstResultVec)) * shipSpeed)
+            // };
         }
         
         free(collisionPoints);
@@ -164,7 +174,7 @@ int main(void)
     Vec2Pair* points;
     Vec2Pair* pointsToPrint;
 
-    int numberOfPoints = 100;
+    int numberOfPoints = 10;
     //Target Parameters
     float r = 50.0f;
     Vector2 mousePos;
