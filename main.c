@@ -41,13 +41,13 @@ Vec2Pair CalculateIntersection(Vector2 targetPos, float radius, float angle)
 
     if(D < 0)
     {
-        t1 = -1;
-        t2 = -1;
+        t1 = 0;
+        t2 = 0;
     }
     else
     {
-        t1 = (-b + sqrt(D))/(2.0f);
-        t2 = (-b - sqrt(D))/(2.0f);
+        t1 = (-b - sqrt(D))/(2.0f);
+        t2 = (-b + sqrt(D))/(2.0f);
     }
     
     // printf("t1: %.2f, t2: %.2f \n", t1, t2);
@@ -83,21 +83,15 @@ Vec2Pair* CalculateCollisionArea(Vector2 targetPos, Vector2 targetVec, float tar
 
     if(pointsCount >= 2 && pointsCount % 2 == 0)
     {
-        float p1 = atan2(T1.y, T1.x);
+        float p1 = atan2(T1.y, T1.x); // angles of tangent lines (to target)
         float p2 = atan2(T2.y, T2.x);
 
         // float p1 = 0;
         // float p2 = -PI;
 
-        float diff = p1 - p2;
+        float diff = p1 - p2; // angle between tangent lines to target
         float shortestDiff = remainder(diff, 2.0f*PI);
         float angleStep = (shortestDiff)/(pointsCount - 1);
-
-        /* if(IsKeyPressed(KEY_SPACE))
-        {
-            TraceLog(LOG_INFO, "Start, end, step angle: %.2f, %.2f, %.2f", p1, p2, angleStep);
-        }
-        */
 
         Vec2Pair* collisionPoints = (Vec2Pair*)calloc(pointsCount, sizeof(Vec2Pair));
         Vec2Pair* resultPoints = (Vec2Pair*)calloc(pointsCount * 2, sizeof(Vec2Pair));
@@ -111,6 +105,7 @@ Vec2Pair* CalculateCollisionArea(Vector2 targetPos, Vector2 targetVec, float tar
         for(int i = 1; i < pointsCount - 1; ++i)
         {
             collisionPoints[i] = CalculateIntersection(targetPos, targetRadius, p2 + angleStep * i);
+            DrawCircle(collisionPoints[i].first.x + shipScreenPos.x, shipScreenPos.y - collisionPoints[i].first.y, 5.0f, LIGHTGRAY);
             DrawCircle(collisionPoints[i].second.x + shipScreenPos.x, shipScreenPos.y - collisionPoints[i].second.y, 5.0f, BLACK);
         }
         collisionPoints[0] = (Vec2Pair){{T1.x, T1.y}, {T1.x, T1.y}};
@@ -118,7 +113,7 @@ Vec2Pair* CalculateCollisionArea(Vector2 targetPos, Vector2 targetVec, float tar
         
         // Vector2 shipNewPos = targetVec;
         Vector2 shipNewPos = Vector2Negate(targetVec);
-
+        DrawCircleLines(shipScreenPos.x + shipNewPos.x, shipScreenPos.y - shipNewPos.y, shipSpeed, PURPLE);
         Vector2 zeroAngleVec = {shipSpeed, 0};
         
         for(int i = 0; i < pointsCount; ++i)
@@ -129,21 +124,21 @@ Vec2Pair* CalculateCollisionArea(Vector2 targetPos, Vector2 targetVec, float tar
             DrawLine(shipScreenPos.x, shipScreenPos.y, shipScreenPos.x + firstResultVec.x, shipScreenPos.y - firstResultVec.y, VIOLET);
             DrawLine(shipScreenPos.x, shipScreenPos.y, shipScreenPos.x + secondResultVec.x, shipScreenPos.y - secondResultVec.y, LIME);
             // DrawCircle(shipScreenPos.x + shipNewPos.x, shipScreenPos.y, LIME);
+            //
+            // Vector_to_go * Time to go
             resultPoints[i] =\
             (Vec2Pair){
-                Vector2Scale(Vector2Subtract(firstResultVec, shipNewPos), (Vector2Length(collisionPoints[i].first) / Vector2Length(firstResultVec))),
-                Vector2Subtract(secondResultVec, shipNewPos)
+                Vector2Scale(Vector2Subtract(firstResultVec, shipNewPos), (Vector2Length(collisionPoints[i].second) / Vector2Length(firstResultVec))),
+                Vector2Scale(Vector2Subtract(firstResultVec, shipNewPos), (Vector2Length(collisionPoints[i].first) / Vector2Length(firstResultVec)))
+                // Vector2Subtract(secondResultVec, shipNewPos)
             };
+
             resultPoints[i + pointsCount] =\
             (Vec2Pair){
-                Vector2Scale(Vector2Subtract(secondResultVec, shipNewPos), (Vector2Length(collisionPoints[i].first) / Vector2Length(secondResultVec))),
-                Vector2Subtract(secondResultVec, shipNewPos)
+                Vector2Scale(Vector2Subtract(secondResultVec, shipNewPos), (Vector2Length(collisionPoints[i].second) / Vector2Length(secondResultVec))),
+                Vector2Scale(Vector2Subtract(secondResultVec, shipNewPos), (Vector2Length(collisionPoints[i].first) / Vector2Length(secondResultVec)))
+                // Vector2Subtract(secondResultVec, shipNewPos)
             };
-            // resultPoints[i] =\
-            //     (Vec2Pair){
-            //     Vector2Scale(Vector2Rotate(zeroAngleVec, p2 + angleStep * i), (Vector2Length(collisionPoints[i].first) / Vector2Length(firstResultVec)) * shipSpeed),
-            //     Vector2Scale(Vector2Rotate(zeroAngleVec, p2 + angleStep * i), (Vector2Length(collisionPoints[i].second) / Vector2Length(secondResultVec)) * shipSpeed)
-            // };
         }
         
         for(int i = 0; i < pointsCount; ++i)
@@ -174,11 +169,11 @@ int main(void)
     Vec2Pair* points;
     Vec2Pair* pointsToPrint;
 
-    int numberOfPoints = 10;
+    int numberOfPoints = 50;
     //Target Parameters
-    float r = 50.0f;
+    float r = 60.0f;
     Vector2 mousePos;
-    Vector2 targetVec = (Vector2){0.0f, -50.0f};
+    Vector2 targetVec = (Vector2){100.0f, -50.0f};
     Vector2 targetVecScreen = (Vector2){targetVec.x, -targetVec.y};
     float shipSpeed = 50.0f;
     pointsToPrint = (Vec2Pair*)calloc(numberOfPoints * 2, sizeof(Vec2Pair));
@@ -218,7 +213,7 @@ int main(void)
         BeginDrawing();
             DrawText(TextFormat("targetPos, r: %.2f, %.2f, %.2f", relativeTargetPosition.x, relativeTargetPosition.y, r), 10, 40, 20, LIGHTGRAY);
             ClearBackground(RAYWHITE);
-            DrawCircleV(mousePos, r, RED); 
+            DrawCircleLinesV(mousePos, r, RED); 
             DrawLineV(shipScreenPos, T1Screen, GREEN);
             DrawLineV(shipScreenPos, T2Screen, BLUE);
             DrawLineV(mousePos, Vector2Add(mousePos, targetVecScreen), BLACK);
@@ -231,11 +226,11 @@ int main(void)
                 // DrawCircleV(Vec3To2(points[i].second), 5.0f, BLUE);
 
                 DrawCircleV(points[i].first, 5.0f, GREEN);
-                DrawCircleV(points[i].second, 5.0f, GREEN);
-                DrawCircleV(points[i + numberOfPoints].first, 5.0f, BLUE);
-                DrawCircleV(points[i + numberOfPoints].second, 5.0f, BLUE);
-                // DrawLineV(points[i].first, points[i + numberOfPoints].first, ORANGE);
-                // DrawLineV(points[i].second, points[i + numberOfPoints].second, PINK);
+                DrawCircleV(points[i].second, 5.0f, DARKGREEN);
+                DrawCircleV(points[i + numberOfPoints].first, 5.0f, SKYBLUE);
+                DrawCircleV(points[i + numberOfPoints].second, 5.0f, DARKBLUE);
+                DrawLineV(points[i].first, points[i].second, ORANGE);
+                DrawLineV(points[i + numberOfPoints].first, points[i + numberOfPoints].second, PINK);
                 DrawText(TextFormat("%.2f, %.2f", pointsToPrint[i].first.x, pointsToPrint[i].first.y), points[i].first.x, points[i].first.y, 5, DARKGREEN);
                 DrawText(TextFormat("%.2f, %.2f", pointsToPrint[i].second.x, pointsToPrint[i].second.y), points[i].second.x, points[i].second.y, 5, DARKGREEN);
                 DrawText(TextFormat("%.2f, %.2f", pointsToPrint[i + numberOfPoints].first.x, pointsToPrint[i + numberOfPoints].first.y), points[i + numberOfPoints].first.x, points[i + numberOfPoints].first.y, 5, SKYBLUE);
